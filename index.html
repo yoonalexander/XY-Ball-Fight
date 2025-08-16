@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Weapon Ball Battle Simulator</title>
+  <link rel="stylesheet" href="./style.css" />
+  <!-- Matter.js (physics engine) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <aside id="controls">
+      <h1>Weapon Ball Battle Simulator</h1>
+
+      <section class="panel">
+        <h2>Mode</h2>
+        <div class="modes">
+          <label><input type="radio" name="mode" value="ffa" checked /> Free-for-All</label>
+          <label><input type="radio" name="mode" value="1v1" /> 1 vs 1</label>
+          <label><input type="radio" name="mode" value="2v2" /> 2 vs 2</label>
+          <label><input type="radio" name="mode" value="4v4" /> 4 vs 4</label>
+          <label><input type="radio" name="mode" value="raid" /> Raid Boss (1 vs Many)</label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Fighters</h2>
+          <span id="selectedCount">0 selected</span>
+        </div>
+        <div id="fightersList" class="fighters-grid">
+          <!-- Populated by UI (engine/ui.js) from engine/weapons.js -->
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Options</h2>
+        <div class="options">
+          <label class="inline">
+            Timescale:
+            <select id="timeScale">
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2x</option>
+              <option value="0.1">Slow-mo (0.1x)</option>
+            </select>
+          </label>
+          <label class="inline">
+            Show HP Bars
+            <input type="checkbox" id="toggleHP" checked />
+          </label>
+          <label class="inline">
+            Show Damage Numbers
+            <input type="checkbox" id="toggleDamage" checked />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel actions">
+        <button id="startBtn" class="primary">Start Battle</button>
+        <button id="restartBtn" class="secondary" disabled>Restart</button>
+      </section>
+
+      <footer>
+        <small>
+          Tip: Select 2–8 fighters. In team modes, teams will auto-assign. Add more weapons easily in engine/weapons.js.
+        </small>
+      </footer>
+    </aside>
+
+    <main id="arena">
+      <canvas id="gameCanvas" width="960" height="600" aria-label="Battle Arena"></canvas>
+      <div id="overlay" hidden>
+        <div class="card">
+          <h2 id="winnerText">Winner</h2>
+          <div class="buttons">
+            <button id="replayBtn" class="primary">Replay</button>
+            <button id="backBtn" class="secondary">Back to Menu</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- App entrypoint (ES modules) -->
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
