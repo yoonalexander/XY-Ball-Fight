@@ -10,10 +10,31 @@ import { createGame } from "./engine/gameLoop.js";
 document.addEventListener("DOMContentLoaded", () => {
   const canvas = document.getElementById("gameCanvas");
 
+  // Responsive canvas sizing (attempt to match CSS layout)
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    // Use devicePixelRatio for crisp rendering on hi-dpi
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(300, Math.floor(rect.width));
+    const h = Math.max(200, Math.floor(rect.height));
+    canvas.width = Math.floor(w * dpr);
+    canvas.height = Math.floor(h * dpr);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    // Scale context
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Note: physics world bounds are static for this demo (set at init).
+    // If you resize the window, reload the page to rebuild physics bounds for best results.
+  }
+
+  // initial size BEFORE creating the game so physics/playArea use correct canvas size
+  resizeCanvas();
+
   // Prepare weapons list for UI
   const weaponsList = listWeapons();
 
-  // Create game instance (uses canvas size at creation time)
+  // Create game instance (after canvas is sized)
   const game = createGame({
     canvas,
     options: {
@@ -56,33 +77,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Responsive canvas sizing (attempt to match CSS layout)
-  function resizeCanvas() {
-    const rect = canvas.getBoundingClientRect();
-    // Use devicePixelRatio for crisp rendering on hi-dpi
-    const dpr = window.devicePixelRatio || 1;
-    const w = Math.max(300, Math.floor(rect.width));
-    const h = Math.max(200, Math.floor(rect.height));
-    canvas.width = Math.floor(w * dpr);
-    canvas.height = Math.floor(h * dpr);
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
-    // Scale context
-    const ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // Note: physics world bounds are static for this demo (set at init). For best results,
-    // reload the page if you resize drastically; a future improvement is to rebuild physics bounds.
-  }
-
   window.addEventListener("resize", () => {
+    // Resize visual canvas; physics playArea is static and will not be rebuilt automatically.
+    // For accurate physics/playArea after significant resize, reload the page is recommended.
     resizeCanvas();
   });
-  // initial size
-  resizeCanvas();
-
-  // Small helper: pre-select a few fighters for convenience
-  // (Select first two by default)
-  // This is optional and non-destructive; UI.resetSelection can clear it.
-  // If you want auto-population, uncomment below:
-  // setTimeout(() => { ui.setWeaponsList(weaponsList); }, 40);
 });

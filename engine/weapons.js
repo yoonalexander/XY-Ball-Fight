@@ -30,7 +30,7 @@ export const weapons = {
     hp: 110,
     radius: 30,
     speed: 0.00185,
-    attackPower: 16,
+    attackPower: 5,
     attackCooldown: 650,
     range: 28, // melee touch distance
     knockback: 0.015
@@ -44,7 +44,7 @@ export const weapons = {
     hp: 95,
     radius: 28,
     speed: 0.0021,
-    attackPower: 13,
+    attackPower: 4,
     attackCooldown: 480,
     range: 34,
     knockback: 0.012
@@ -58,7 +58,7 @@ export const weapons = {
     hp: 135,
     radius: 34,
     speed: 0.0015,
-    attackPower: 22,
+    attackPower: 7,
     attackCooldown: 900,
     range: 28,
     knockback: 0.022
@@ -72,7 +72,7 @@ export const weapons = {
     hp: 85,
     radius: 28,
     speed: 0.0016,
-    attackPower: 11,
+    attackPower: 4,
     attackCooldown: 900,
     range: 240,
     projectileSpeed: 0.035,
@@ -88,7 +88,7 @@ export const weapons = {
     hp: 100,
     radius: 30,
     speed: 0.00155,
-    attackPower: 9,
+    attackPower: 3,
     attackCooldown: 220,
     range: 200,
     projectileSpeed: 0.028,
@@ -104,7 +104,7 @@ export const weapons = {
     hp: 95,
     radius: 30,
     speed: 0.0015,
-    attackPower: 14,
+    attackPower: 5,
     attackCooldown: 1400,
     range: 120, // tries to keep some distance
     aoeRadius: 90,
@@ -135,7 +135,7 @@ export const weapons = {
     hp: 125,
     radius: 34,
     speed: 0.0012,
-    attackPower: 20,
+    attackPower: 7,
     attackCooldown: 1400,
     range: 260,
     projectileSpeed: 0.04,

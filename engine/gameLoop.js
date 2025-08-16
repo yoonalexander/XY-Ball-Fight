@@ -33,8 +33,13 @@ import {
  */
 export function createGame({ canvas, options = {}, callbacks = {} }) {
   const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
+  // Use CSS pixel dimensions for physics and rendering so the playArea matches the visual canvas.
+  // canvas.width/height are device-pixel sizes (scaled by devicePixelRatio when we set them).
+  const dpr = window.devicePixelRatio || 1;
+  const pixelWidth = canvas.width;
+  const pixelHeight = canvas.height;
+  const width = Math.floor(pixelWidth / dpr);
+  const height = Math.floor(pixelHeight / dpr);
 
   const showHPBars = { value: options.showHPBars ?? true };
   const showDamage = { value: options.showDamage ?? true };
@@ -174,6 +179,37 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
       const a = p.bodyA;
       const b = p.bodyB;
 
+      // Preserve horizontal momentum when hitting walls:
+      // If one body is a wall and the other is a fighter, ensure the fighter keeps
+      // a horizontal velocity away from the wall (avoid cancellations).
+      const wallLabels = ["wall_left", "wall_right", "wall_top", "wall_bottom"];
+      const isWall = (body) => typeof body.label === "string" && wallLabels.some(l => body.label.includes(l.replace("wall_", "")) || body.label === l);
+      const wallBody = isWall(a) ? a : (isWall(b) ? b : null);
+      const fighterBody = findFighterByBody(a) || findFighterByBody(b);
+
+      if (wallBody && fighterBody) {
+        // If horizontal velocity is near zero after collision, push it away from the wall.
+        const fv = fighterBody.body.velocity;
+        let vx = fv.x;
+        // Determine wall side
+        const label = wallBody.label || "";
+        // If hitting left wall, we want positive vx; if right wall, negative vx.
+        if (label.includes("left") && vx <= 0) {
+          vx = Math.max(1.5, Math.abs(vx)); // ensure a minimum horizontal speed away
+        } else if (label.includes("right") && vx >= 0) {
+          vx = -Math.max(1.5, Math.abs(vx));
+        } else {
+          // For top/bottom walls, try to preserve horizontal component if present;
+          // if it's near zero, give a small random horizontal push.
+          if (Math.abs(vx) < 0.5) {
+            vx = (Math.random() < 0.5 ? -1 : 1) * 2.0;
+          }
+        }
+        // Apply adjusted velocity while preserving vertical component
+        Matter.Body.setVelocity(fighterBody.body, { x: vx, y: fv.y });
+        // continue to next pair (we still allow other handlers below, but this prevents cancellation)
+      }
+
       // projectile <-> fighter
       const proj = findProjectileByBody(a) || findProjectileByBody(b);
       const fighter = findFighterByBody(a) || findFighterByBody(b);
@@ -258,11 +294,15 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
     const teams = assignTeams(mode, n);
     // remember initial teams so we can correctly evaluate team wins later
     lastMatchTeams = teams.slice();
-    const spawnPoints = computeSpawnPoints(mode, teams, n, width, height);
+    // Use physics.playArea (if present) so spawning happens inside the visual room.
+    const area = physics.playArea ?? { x: 0, y: 0, w: width, h: height };
+    // Compute spawn positions relative to the play area's local coordinates, then translate
+    const localSpawns = computeSpawnPoints(mode, teams, n, area.w, area.h);
 
     for (let i = 0; i < n; i++) {
       const team = teams[i];
-      const pos = spawnPoints[i];
+      const local = localSpawns[i] || { x: area.w / 2, y: area.h / 2 };
+      const pos = { x: local.x + area.x, y: local.y + area.y }; // world coords
       const isBoss = (mode === "raid" && team === 0 && i === 0);
       const bossMul = isBoss ? 2.0 : 1.0; // Boss gets extra HP
       spawnFighter({
@@ -273,6 +313,26 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
         y: pos.y,
         bossMultiplier: bossMul
       });
+    }
+
+    // Give each fighter a small initial horizontal-only burst toward the area's center.
+    // Use the physics.playArea center when available so this works consistently in all modes.
+    const arenaCenter = { x: area.x + area.w / 2, y: area.y + area.h / 2 };
+
+    for (const f of fighters) {
+      // Determine horizontal direction: push toward center.x only (no vertical steering)
+      const dirX = Math.sign(arenaCenter.x - f.body.position.x) || (Math.random() < 0.5 ? -1 : 1);
+
+      // Set an immediate horizontal velocity so the burst is visible regardless of engine timing.
+      // Value is in pixels per second (approx); tune between 3..12 for desired strength.
+      const burstSpeed = 6 + Math.random() * 4; // 6..10 px/s
+      // Preserve current vertical velocity
+      const curV = f.body.velocity;
+      Matter.Body.setVelocity(f.body, { x: dirX * burstSpeed, y: curV.y });
+
+      // Small random vertical impulse so they don't purely travel horizontally (keeps variety)
+      const vImpulse = (Math.random() - 0.5) * 0.02;
+      Matter.Body.applyForce(f.body, f.body.position, { x: 0, y: vImpulse });
     }
 
     lastTime = performance.now();
@@ -512,10 +572,12 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
   }
 
   function drawBackground(ctx, w, h) {
-    // Subtle grid
+    // Full background
     ctx.save();
-    ctx.fillStyle = "rgba(15,18,32,1)";
+    ctx.fillStyle = "rgba(12,14,28,1)";
     ctx.fillRect(0, 0, w, h);
+
+    // Dim grid
     const step = 40;
     ctx.strokeStyle = "rgba(255,255,255,0.04)";
     ctx.lineWidth = 1;
@@ -531,6 +593,27 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
       ctx.lineTo(w, y + 0.5);
       ctx.stroke();
     }
+
+    // Draw the play area (if provided by physics) as a centered panel
+    const area = physics.playArea ?? { x: 0, y: 0, w: w, h: h };
+    ctx.save();
+    // Panel background (slightly lighter)
+    ctx.fillStyle = "rgba(20,24,46,0.85)";
+    ctx.fillRect(area.x, area.y, area.w, area.h);
+
+    // Border
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.strokeRect(area.x + 1.5, area.y + 1.5, area.w - 3, area.h - 3);
+
+    // Inner subtle glow
+    const grad = ctx.createLinearGradient(area.x, area.y, area.x + area.w, area.y + area.h);
+    grad.addColorStop(0, "rgba(255,255,255,0.02)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(area.x, area.y, area.w, area.h);
+
+    ctx.restore();
     ctx.restore();
   }
 
