@@ -9,6 +9,7 @@ import {
   makeFighterBody,
   makeProjectileBody,
   steerTowards,
+  steerHorizontal,
   clampVelocity,
   applyRadialForce,
   distance
@@ -41,8 +42,8 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
 
   const onWin = callbacks.onWin ?? (() => {});
 
-  // Physics
-  const physics = initPhysics({ width, height, gravityY: 0 });
+  // Physics (use default gravity configured by physics.initPhysics)
+  const physics = initPhysics({ width, height });
 
   // State
   let rafId = null;
@@ -195,6 +196,34 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
           // Same team or dead, let it pass (optional: remove)
         }
       }
+
+      // fighter <-> fighter collision damage based on impact speed
+      const fa = findFighterByBody(a);
+      const fb = findFighterByBody(b);
+      if (fa && fb && fa.id !== fb.id && fa.hp > 0 && fb.hp > 0 && fa.team !== fb.team) {
+        // approximate relative impact speed
+        const rvx = a.velocity.x - b.velocity.x;
+        const rvy = a.velocity.y - b.velocity.y;
+        const relSpeed = Math.hypot(rvx, rvy);
+
+        // threshold to avoid tiny grazes causing damage
+        if (relSpeed > 1.2) {
+          // scale damage by impact and attackPower; tuned constant for reasonable numbers
+          const impact = relSpeed;
+          const dmgToA = Math.max(1, Math.round((fb.def.attackPower ?? 10) * impact * 0.06));
+          const dmgToB = Math.max(1, Math.round((fa.def.attackPower ?? 10) * impact * 0.06));
+
+          const hx = (p.collision.supports[0]?.x ?? a.position.x);
+          const hy = (p.collision.supports[0]?.y ?? a.position.y);
+
+          dealDamage(fa, dmgToA, { x: hx, y: hy }, "#ff7b7b");
+          dealDamage(fb, dmgToB, { x: hx, y: hy }, "#ff7b7b");
+
+          // add small knockback impulse based on impact
+          applyRadialForce(fa.body, b.position, Math.min(0.08, impact * 0.008));
+          applyRadialForce(fb.body, a.position, Math.min(0.08, impact * 0.008));
+        }
+      }
     }
   });
 
@@ -287,10 +316,8 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
     // Steering + attacks per fighter
     for (const f of fighters) {
       // Movement desire
-      const targetPoint = desiredMovePoint(f, fighters);
-      if (targetPoint) {
-        steerTowards(f.body, targetPoint, f.def.speed ?? 0.0016);
-      }
+      // Steering disabled: fighters will not actively move toward targets.
+      // Movement is now purely physics-driven (gravity, collisions, and knockback).
       clampVelocity(f.body, 16);
 
       const enemy = getNearestEnemy(f, fighters);

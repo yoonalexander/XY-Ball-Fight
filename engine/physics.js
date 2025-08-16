@@ -17,22 +17,52 @@ const {
  * Initialize Matter.js engine and static world bounds based on canvas size.
  * gravityY is 0 for top-down arena.
  */
-export function initPhysics({ width, height, gravityY = 0 }) {
+export function initPhysics({ width, height, gravityY = 1, inset = 0.14, gravityScale = 0.0006 } = {}) {
+  // Gravity-enabled scene (vertical). Defaults use Matter's typical gravity scale.
+  // gravityY is the gravity direction scalar (1 is Earth-like), gravityScale tunes acceleration.
+  // Reduced gravityScale to produce gentler falling so bounces are visible and not too fast.
   const engine = Engine.create({
-    gravity: { x: 0, y: gravityY, scale: 0.001 }
+    gravity: { x: 0, y: gravityY, scale: gravityScale }
   });
   const world = engine.world;
 
-  // Arena bounds (thick static walls just outside the canvas)
-  const wallThickness = 200;
-  const halfW = width / 2;
-  const halfH = height / 2;
+  // Arena bounds (walls inset to create a smaller "room" for a zoomed-in feel)
+  // Increase wall restitution and remove friction so balls bounce cleanly off walls.
+  const wallThickness = 160;
+  const cx = width / 2;
+  const cy = height / 2;
+  const playW = Math.max(200, Math.floor(width * (1 - inset)));
+  const playH = Math.max(200, Math.floor(height * (1 - inset)));
 
   const walls = [
-    Bodies.rectangle(halfW, -wallThickness / 2, width, wallThickness, { isStatic: true, restitution: 0.6, label: "wall_top" }),
-    Bodies.rectangle(halfW, height + wallThickness / 2, width, wallThickness, { isStatic: true, restitution: 0.6, label: "wall_bottom" }),
-    Bodies.rectangle(-wallThickness / 2, halfH, wallThickness, height, { isStatic: true, restitution: 0.6, label: "wall_left" }),
-    Bodies.rectangle(width + wallThickness / 2, halfH, wallThickness, height, { isStatic: true, restitution: 0.6, label: "wall_right" })
+    Bodies.rectangle(cx, cy - playH / 2 - wallThickness / 2, playW, wallThickness, {
+      isStatic: true,
+      restitution: 1.0,
+      friction: 0,
+      frictionStatic: 0,
+      label: "wall_top"
+    }),
+    Bodies.rectangle(cx, cy + playH / 2 + wallThickness / 2, playW, wallThickness, {
+      isStatic: true,
+      restitution: 1.0,
+      friction: 0,
+      frictionStatic: 0,
+      label: "wall_bottom"
+    }),
+    Bodies.rectangle(cx - playW / 2 - wallThickness / 2, cy, wallThickness, playH, {
+      isStatic: true,
+      restitution: 1.0,
+      friction: 0,
+      frictionStatic: 0,
+      label: "wall_left"
+    }),
+    Bodies.rectangle(cx + playW / 2 + wallThickness / 2, cy, wallThickness, playH, {
+      isStatic: true,
+      restitution: 1.0,
+      friction: 0,
+      frictionStatic: 0,
+      label: "wall_right"
+    })
   ];
   World.add(world, walls);
 
@@ -72,14 +102,17 @@ export function makeFighterBody({
   x,
   y,
   radius = 16,
-  restitution = 0.9,
-  frictionAir = 0.025,
-  density = 0.0018,
+  restitution = 1.0,
+  frictionAir = 0.005,
+  density = 0.0025,
   label = "fighter"
 }) {
+  // Max bounciness: restitution 1.0, zero surface friction and minimal air drag so balls
+  // bounce without losing kinetic energy from friction. This creates near-elastic collisions.
   const body = Bodies.circle(x, y, radius, {
     restitution,
     frictionAir,
+    friction: 0,
     density,
     label
   });
@@ -93,11 +126,12 @@ export function makeProjectileBody({
   x,
   y,
   radius = 4,
-  restitution = 0.8,
+  restitution = 1.0,
   frictionAir = 0.01,
-  density = 0.0005,
+  density = 0.0006,
   label = "projectile"
 }) {
+  // Projectiles set to full restitution so they bounce off walls when needed and arc under gravity.
   const body = Bodies.circle(x, y, radius, {
     restitution,
     frictionAir,
@@ -120,6 +154,21 @@ export function steerTowards(body, target, magnitude = 0.0015) {
     y: dir.y * magnitude
   });
   return dir;
+}
+
+/**
+ * Apply a horizontal-only steering force towards target.x.
+ * This is useful in a gravity-enabled scene where vertical movement should be driven by gravity,
+ * and agents should only control their horizontal movement.
+ */
+export function steerHorizontal(body, target, magnitude = 0.0006) {
+  const vx = target.x - body.position.x;
+  const dirx = vx === 0 ? 0 : vx / Math.hypot(vx, target.y - body.position.y || 1);
+  Body.applyForce(body, body.position, {
+    x: dirx * magnitude,
+    y: 0
+  });
+  return { x: dirx, y: 0 };
 }
 
 /**
