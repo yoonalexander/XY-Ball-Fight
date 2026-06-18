@@ -23,6 +23,41 @@ Option B — Recommended (serve locally)
    - Node: `npx serve .` or `npx http-server .`
 2. Open http://localhost:8000 in your browser.
 
+## Vercel deployment
+
+This repo is configured for Vercel as a static site with no build step.
+
+Project settings:
+- Framework Preset: `Other`
+- Build Command: leave empty
+- Output Directory: leave empty or `.`
+- Install Command: leave empty
+
+To host the game at `https://alexyoon.com/xy-fight/`, keep this game deployed as its
+own Vercel project, then add the route below to the Vercel project that owns
+`alexyoon.com`:
+
+```json
+{
+  "redirects": [
+    {
+      "source": "/xy-fight",
+      "destination": "/xy-fight/",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/xy-fight/:path*",
+      "destination": "https://xy-ball-fight.vercel.app/xy-fight/:path*"
+    }
+  ]
+}
+```
+
+Vercel domains attach to hostnames, not URL paths, so `alexyoon.com/xy-fight`
+must be handled by a rewrite from the project currently serving `alexyoon.com`.
+
 ## Controls
 Controls are implemented in `engine/ui.js`. Default bindings may include keyboard for movement and mouse for aiming/attacking — inspect that file for exact keys and mouse behavior.
 

@@ -1,0 +1,17 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/xy-fight",
+      "destination": "/xy-fight/",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/xy-fight/:path*",
+      "destination": "/:path*"
+    }
+  ]
+}
