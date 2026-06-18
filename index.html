@@ -4,7 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Weapon Ball Battle Simulator</title>
-  <link rel="stylesheet" href="./style.css" />
+  <script>
+    const basePath = window.location.pathname.startsWith("/xy-fight")
+      ? "/xy-fight/"
+      : "/";
+
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = basePath + "style.css";
+    document.head.appendChild(css);
+
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = basePath + "main.js";
+    script.defer = true;
+    document.head.appendChild(script);
+  </script>
   <!-- Matter.js (physics engine) -->
   <script defer src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
 </head>
@@ -83,8 +98,5 @@
       </div>
     </main>
   </div>
-
-  <!-- App entrypoint (ES modules) -->
-  <script type="module" src="./main.js" defer></script>
 </body>
 </html>
