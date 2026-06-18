@@ -9,10 +9,7 @@
     ? "/xy-fight/"
     : "/";
 
-  const css = document.createElement("link");
-  css.rel = "stylesheet";
-  css.href = basePath + "style.css";
-  document.head.appendChild(css);
+  document.write(`<link rel="stylesheet" href="${basePath}style.css">`);
 
   window.addEventListener("DOMContentLoaded", () => {
     const script = document.createElement("script");
