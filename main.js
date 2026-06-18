@@ -7,7 +7,7 @@ import { createGame } from "./engine/gameLoop.js";
  * Wires UI <-> Game loop and handles options.
  */
 
-document.addEventListener("DOMContentLoaded", () => {
+function boot() {
   const canvas = document.getElementById("gameCanvas");
 
   // Responsive canvas sizing (attempt to match CSS layout)
@@ -82,4 +82,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // For accurate physics/playArea after significant resize, reload the page is recommended.
     resizeCanvas();
   });
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", boot);
+} else {
+  boot();
+}
