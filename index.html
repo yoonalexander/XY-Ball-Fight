@@ -4,11 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Weapon Ball Battle Simulator</title>
-  <script>
-    if (window.location.pathname.endsWith("/xy-fight")) {
-      window.location.replace(`${window.location.pathname}/${window.location.search}${window.location.hash}`);
-    }
-  </script>
   <link rel="stylesheet" href="./style.css" />
   <!-- Matter.js (physics engine) -->
   <script defer src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
@@ -90,6 +85,6 @@
   </div>
 
   <!-- App entrypoint (ES modules) -->
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="./main.js" defer></script>
 </body>
 </html>
