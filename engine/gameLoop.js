@@ -8,9 +8,7 @@ import {
   step as physicsStep,
   makeFighterBody,
   makeProjectileBody,
-  steerTowards,
-  steerHorizontal,
-  clampVelocity,
+  setConstantSpeed,
   applyRadialForce,
   distance
 } from "./physics.js";
@@ -18,11 +16,9 @@ import {
   getWeaponDef
 } from "./weapons.js";
 import {
-  desiredMovePoint,
   getNearestEnemy,
   isInMeleeRange,
-  isInRangedRange,
-  hasAnyEnemyAlive
+  isInRangedRange
 } from "./ai.js";
 
 /**
@@ -84,7 +80,8 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
       maxHp,
       body,
       lastAttackAt: 0,
-      name: def.name
+      name: def.name,
+      moveSpeed: def.speed ?? 7
     };
     physics.add(body);
     fighters.push(fighter);
@@ -106,10 +103,9 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
     const dx = targetPos.x - owner.body.position.x;
     const dy = targetPos.y - owner.body.position.y;
     const len = Math.hypot(dx, dy) || 1;
-    const speed = def.projectileSpeed ?? 0.03;
-    const vx = (dx / len) * (speed * 1000); // roughly px/s -> Matter units per step; tune with Engine.update
-    const vy = (dy / len) * (speed * 1000);
-    // Using Body.setVelocity is okay but direct assignment is fine via setVelocity alternative; we can set after add
+    const speed = def.projectileSpeedPx ?? ((def.projectileSpeed ?? 0.03) * 250);
+    const vx = (dx / len) * speed;
+    const vy = (dy / len) * speed;
     Matter.Body.setVelocity(projBody, { x: vx, y: vy });
 
     physics.add(projBody);
@@ -124,7 +120,8 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
       radius,
       body: projBody,
       bornAt: performance.now(),
-      lifeMs: 4000
+      lifeMs: 4000,
+      moveSpeed: speed
     };
     projectiles.push(proj);
     return proj;
@@ -178,37 +175,6 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
     for (const p of pairs) {
       const a = p.bodyA;
       const b = p.bodyB;
-
-      // Preserve horizontal momentum when hitting walls:
-      // If one body is a wall and the other is a fighter, ensure the fighter keeps
-      // a horizontal velocity away from the wall (avoid cancellations).
-      const wallLabels = ["wall_left", "wall_right", "wall_top", "wall_bottom"];
-      const isWall = (body) => typeof body.label === "string" && wallLabels.some(l => body.label.includes(l.replace("wall_", "")) || body.label === l);
-      const wallBody = isWall(a) ? a : (isWall(b) ? b : null);
-      const fighterBody = findFighterByBody(a) || findFighterByBody(b);
-
-      if (wallBody && fighterBody) {
-        // If horizontal velocity is near zero after collision, push it away from the wall.
-        const fv = fighterBody.body.velocity;
-        let vx = fv.x;
-        // Determine wall side
-        const label = wallBody.label || "";
-        // If hitting left wall, we want positive vx; if right wall, negative vx.
-        if (label.includes("left") && vx <= 0) {
-          vx = Math.max(1.5, Math.abs(vx)); // ensure a minimum horizontal speed away
-        } else if (label.includes("right") && vx >= 0) {
-          vx = -Math.max(1.5, Math.abs(vx));
-        } else {
-          // For top/bottom walls, try to preserve horizontal component if present;
-          // if it's near zero, give a small random horizontal push.
-          if (Math.abs(vx) < 0.5) {
-            vx = (Math.random() < 0.5 ? -1 : 1) * 2.0;
-          }
-        }
-        // Apply adjusted velocity while preserving vertical component
-        Matter.Body.setVelocity(fighterBody.body, { x: vx, y: fv.y });
-        // continue to next pair (we still allow other handlers below, but this prevents cancellation)
-      }
 
       // projectile <-> fighter
       const proj = findProjectileByBody(a) || findProjectileByBody(b);
@@ -315,24 +281,17 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
       });
     }
 
-    // Give each fighter a small initial horizontal-only burst toward the area's center.
-    // Use the physics.playArea center when available so this works consistently in all modes.
     const arenaCenter = { x: area.x + area.w / 2, y: area.y + area.h / 2 };
 
     for (const f of fighters) {
-      // Determine horizontal direction: push toward center.x only (no vertical steering)
-      const dirX = Math.sign(arenaCenter.x - f.body.position.x) || (Math.random() < 0.5 ? -1 : 1);
-
-      // Set an immediate horizontal velocity so the burst is visible regardless of engine timing.
-      // Value is in pixels per second (approx); tune between 3..12 for desired strength.
-      const burstSpeed = 6 + Math.random() * 4; // 6..10 px/s
-      // Preserve current vertical velocity
-      const curV = f.body.velocity;
-      Matter.Body.setVelocity(f.body, { x: dirX * burstSpeed, y: curV.y });
-
-      // Small random vertical impulse so they don't purely travel horizontally (keeps variety)
-      const vImpulse = (Math.random() - 0.5) * 0.02;
-      Matter.Body.applyForce(f.body, f.body.position, { x: 0, y: vImpulse });
+      const dx = arenaCenter.x - f.body.position.x;
+      const dy = arenaCenter.y - f.body.position.y;
+      const baseAngle = Math.atan2(dy, dx);
+      const angle = baseAngle + (Math.random() - 0.5) * 0.7;
+      Matter.Body.setVelocity(f.body, {
+        x: Math.cos(angle) * f.moveSpeed,
+        y: Math.sin(angle) * f.moveSpeed
+      });
     }
 
     lastTime = performance.now();
@@ -375,11 +334,6 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
   function thinkAndAct(now, dt) {
     // Steering + attacks per fighter
     for (const f of fighters) {
-      // Movement desire
-      // Steering disabled: fighters will not actively move toward targets.
-      // Movement is now purely physics-driven (gravity, collisions, and knockback).
-      clampVelocity(f.body, 16);
-
       const enemy = getNearestEnemy(f, fighters);
       if (!enemy) continue;
 
@@ -459,6 +413,14 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
       if (now - p.bornAt > p.lifeMs) {
         removeProjectile(p);
       }
+    }
+
+    for (const f of fighters) {
+      setConstantSpeed(f.body, f.moveSpeed);
+    }
+
+    for (const p of projectiles) {
+      setConstantSpeed(p.body, p.moveSpeed);
     }
 
     // Animate floaters/effects
@@ -574,46 +536,41 @@ export function createGame({ canvas, options = {}, callbacks = {} }) {
   function drawBackground(ctx, w, h) {
     // Full background
     ctx.save();
-    ctx.fillStyle = "rgba(12,14,28,1)";
+    ctx.fillStyle = "#080a12";
     ctx.fillRect(0, 0, w, h);
 
-    // Dim grid
-    const step = 40;
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < w; x += step) {
-      ctx.beginPath();
-      ctx.moveTo(x + 0.5, 0);
-      ctx.lineTo(x + 0.5, h);
-      ctx.stroke();
-    }
-    for (let y = 0; y < h; y += step) {
-      ctx.beginPath();
-      ctx.moveTo(0, y + 0.5);
-      ctx.lineTo(w, y + 0.5);
-      ctx.stroke();
-    }
-
-    // Draw the play area (if provided by physics) as a centered panel
     const area = physics.playArea ?? { x: 0, y: 0, w: w, h: h };
-    ctx.save();
-    // Panel background (slightly lighter)
-    ctx.fillStyle = "rgba(20,24,46,0.85)";
+
+    const bg = ctx.createRadialGradient(area.x + area.w * 0.5, area.y + area.h * 0.45, 20, area.x + area.w * 0.5, area.y + area.h * 0.45, Math.max(area.w, area.h) * 0.75);
+    bg.addColorStop(0, "#172033");
+    bg.addColorStop(0.55, "#0c111d");
+    bg.addColorStop(1, "#070911");
+    ctx.fillStyle = bg;
     ctx.fillRect(area.x, area.y, area.w, area.h);
 
-    // Border
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(255,255,255,0.08)";
-    ctx.strokeRect(area.x + 1.5, area.y + 1.5, area.w - 3, area.h - 3);
+    const step = 44;
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.08)";
+    ctx.lineWidth = 1;
+    for (let x = area.x; x < area.x + area.w; x += step) {
+      ctx.beginPath();
+      ctx.moveTo(x + 0.5, area.y);
+      ctx.lineTo(x + 0.5, area.y + area.h);
+      ctx.stroke();
+    }
+    for (let y = area.y; y < area.y + area.h; y += step) {
+      ctx.beginPath();
+      ctx.moveTo(area.x, y + 0.5);
+      ctx.lineTo(area.x + area.w, y + 0.5);
+      ctx.stroke();
+    }
 
-    // Inner subtle glow
-    const grad = ctx.createLinearGradient(area.x, area.y, area.x + area.w, area.y + area.h);
-    grad.addColorStop(0, "rgba(255,255,255,0.02)");
-    grad.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(area.x, area.y, area.w, area.h);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(226, 232, 240, 0.18)";
+    ctx.strokeRect(area.x + 1, area.y + 1, area.w - 2, area.h - 2);
 
-    ctx.restore();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(34, 211, 238, 0.18)";
+    ctx.strokeRect(area.x + 8.5, area.y + 8.5, area.w - 17, area.h - 17);
     ctx.restore();
   }
 

@@ -46,6 +46,7 @@ export function initUI({
       swatch.style.background = w.color;
 
       const nameWrap = document.createElement("div");
+      nameWrap.className = "fighter-label";
       const name = document.createElement("div");
       name.className = "fighter-name";
       name.textContent = w.name;
@@ -64,6 +65,7 @@ export function initUI({
       stats.innerHTML = `
         <div class="stat">HP: ${w.hp}</div>
         <div class="stat">ATK: ${w.attackPower ?? 0}</div>
+        <div class="stat">SPD: ${w.speed ?? 0}</div>
         <div class="stat">CD: ${w.attackCooldown ?? 0}ms</div>
       `;
 

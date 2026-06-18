@@ -9,7 +9,7 @@
  * - color: render color of the ball
  * - hp: base health points
  * - radius: visual/physics radius (px)
- * - speed: movement force scalar (higher = faster acceleration)
+ * - speed: constant cruise velocity in the zero-gravity arena
  * - attackPower: damage per attack
  * - attackCooldown: ms between attacks
  * - range: preferred range (for aiming/behavior), also used for melee reach
@@ -29,7 +29,7 @@ export const weapons = {
     color: "#ef4444",
     hp: 110,
     radius: 30,
-    speed: 0.00185,
+    speed: 7.2,
     attackPower: 5,
     attackCooldown: 650,
     range: 28, // melee touch distance
@@ -43,7 +43,7 @@ export const weapons = {
     color: "#f59e0b",
     hp: 95,
     radius: 28,
-    speed: 0.0021,
+    speed: 8.3,
     attackPower: 4,
     attackCooldown: 480,
     range: 34,
@@ -57,7 +57,7 @@ export const weapons = {
     color: "#7c3aed",
     hp: 135,
     radius: 34,
-    speed: 0.0015,
+    speed: 6.2,
     attackPower: 7,
     attackCooldown: 900,
     range: 28,
@@ -71,7 +71,7 @@ export const weapons = {
     color: "#22c55e",
     hp: 85,
     radius: 28,
-    speed: 0.0016,
+    speed: 7,
     attackPower: 4,
     attackCooldown: 900,
     range: 240,
@@ -87,7 +87,7 @@ export const weapons = {
     color: "#3b82f6",
     hp: 100,
     radius: 30,
-    speed: 0.00155,
+    speed: 7.6,
     attackPower: 3,
     attackCooldown: 220,
     range: 200,
@@ -103,7 +103,7 @@ export const weapons = {
     color: "#a855f7",
     hp: 95,
     radius: 30,
-    speed: 0.0015,
+    speed: 6.8,
     attackPower: 5,
     attackCooldown: 1400,
     range: 120, // tries to keep some distance
@@ -119,7 +119,7 @@ export const weapons = {
     color: "#eab308",
     hp: 90,
     radius: 28,
-    speed: 0.0018,
+    speed: 7.4,
     attackPower: 0,
     attackCooldown: 1200, // heal cooldown
     range: 180,
@@ -134,7 +134,7 @@ export const weapons = {
     color: "#94a3b8",
     hp: 125,
     radius: 34,
-    speed: 0.0012,
+    speed: 5.8,
     attackPower: 7,
     attackCooldown: 1400,
     range: 260,

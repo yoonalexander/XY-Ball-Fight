@@ -15,19 +15,14 @@ const {
 
 /**
  * Initialize Matter.js engine and static world bounds based on canvas size.
- * gravityY is 0 for top-down arena.
+ * gravityY is 0 for the top-down zero-gravity arena.
  */
-export function initPhysics({ width, height, gravityY = 1, inset = 0.14, gravityScale = 0.0006, collisionHorizontalBoost = 0.003 } = {}) {
-  // Gravity-enabled scene (vertical). Defaults use Matter's typical gravity scale.
-  // gravityY is the gravity direction scalar (1 is Earth-like), gravityScale tunes acceleration.
-  // Reduced gravityScale to produce gentler falling so bounces are visible and not too fast.
+export function initPhysics({ width, height, gravityY = 0, inset = 0.08, gravityScale = 0 } = {}) {
   const engine = Engine.create({
     gravity: { x: 0, y: gravityY, scale: gravityScale }
   });
   const world = engine.world;
 
-  // Arena bounds (walls inset to create a smaller "room" for a zoomed-in feel)
-  // Increase wall restitution and remove friction so balls bounce cleanly off walls.
   const wallThickness = 160;
   const cx = width / 2;
   const cy = height / 2;
@@ -37,61 +32,34 @@ export function initPhysics({ width, height, gravityY = 1, inset = 0.14, gravity
   const walls = [
     Bodies.rectangle(cx, cy - playH / 2 - wallThickness / 2, playW, wallThickness, {
       isStatic: true,
-      // restitution > 1 will amplify energy on bounce; set per request
-      restitution: 1.5,
+      restitution: 1,
       friction: 0,
       frictionStatic: 0,
       label: "wall_top"
     }),
     Bodies.rectangle(cx, cy + playH / 2 + wallThickness / 2, playW, wallThickness, {
       isStatic: true,
-      restitution: 1.5,
+      restitution: 1,
       friction: 0,
       frictionStatic: 0,
       label: "wall_bottom"
     }),
     Bodies.rectangle(cx - playW / 2 - wallThickness / 2, cy, wallThickness, playH, {
       isStatic: true,
-      restitution: 1.5,
+      restitution: 1,
       friction: 0,
       frictionStatic: 0,
       label: "wall_left"
     }),
     Bodies.rectangle(cx + playW / 2 + wallThickness / 2, cy, wallThickness, playH, {
       isStatic: true,
-      restitution: 1.5,
+      restitution: 1,
       friction: 0,
       frictionStatic: 0,
       label: "wall_right"
     })
   ];
   World.add(world, walls);
-
-  // Anti-stalemate collision handler:
-  // When a non-static circular body (fighter/projectile) collides with a wall or another ball,
-  // apply a small horizontal force to nudge it out of near-zero horizontal velocity.
-  Events.on(engine, 'collisionStart', (event) => {
-    for (const pair of event.pairs) {
-      const { bodyA, bodyB } = pair;
-      const handle = (body, other) => {
-        if (body.isStatic) return;
-        const isWall = other.isStatic && typeof other.label === 'string' && other.label.startsWith('wall');
-        const isBall = typeof body.label === 'string' && (body.label.includes('fighter') || body.label.includes('projectile') || body.label === 'ball');
-        const otherIsBall = typeof other.label === 'string' && (other.label.includes('fighter') || other.label.includes('projectile') || other.label === 'ball');
-        if (!isBall) return;
-        if (isWall || otherIsBall) {
-          const vx = body.velocity.x || 0;
-          // If horizontal velocity is near zero, choose a random horizontal direction to break stalemate.
-          let dir = Math.abs(vx) < 0.02 ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(vx);
-          // Apply a small horizontal force scaled by an adjustable boost parameter.
-          const boost = collisionHorizontalBoost || 0.003;
-          Body.applyForce(body, body.position, { x: dir * boost, y: 0 });
-        }
-      };
-      handle(bodyA, bodyB);
-      handle(bodyB, bodyA);
-    }
-  });
 
   return {
     engine,
@@ -136,17 +104,16 @@ export function makeFighterBody({
   x,
   y,
   radius = 16,
-  restitution = 1.5,
+  restitution = 1,
   frictionAir = 0.0,
   density = 0.0032,
   label = "fighter"
 }) {
-  // Preserve horizontal momentum: zero air drag and minimal surface friction,
-  // slightly higher density for more inertia so horizontal velocity persists after bounces.
   const body = Bodies.circle(x, y, radius, {
     restitution,
     frictionAir,
     friction: 0,
+    frictionStatic: 0,
     density,
     label
   });
@@ -160,15 +127,16 @@ export function makeProjectileBody({
   x,
   y,
   radius = 4,
-  restitution = 1.5,
-  frictionAir = 0.008,
+  restitution = 1,
+  frictionAir = 0,
   density = 0.0006,
   label = "projectile"
 }) {
-  // Projectiles with very high restitution so they bounce energetically off walls and objects.
   const body = Bodies.circle(x, y, radius, {
     restitution,
     frictionAir,
+    friction: 0,
+    frictionStatic: 0,
     density,
     label
   });
@@ -229,6 +197,25 @@ export function clampVelocity(body, maxSpeed = 20) {
     const scale = maxSpeed / speed;
     Body.setVelocity(body, { x: v.x * scale, y: v.y * scale });
   }
+}
+
+/**
+ * Keep a body moving at a stable top-down cruise speed.
+ */
+export function setConstantSpeed(body, targetSpeed = 7) {
+  const v = body.velocity;
+  let speed = Math.hypot(v.x, v.y);
+  if (speed < 0.001) {
+    const angle = Math.random() * Math.PI * 2;
+    Body.setVelocity(body, {
+      x: Math.cos(angle) * targetSpeed,
+      y: Math.sin(angle) * targetSpeed
+    });
+    return;
+  }
+
+  const scale = targetSpeed / speed;
+  Body.setVelocity(body, { x: v.x * scale, y: v.y * scale });
 }
 
 /**
